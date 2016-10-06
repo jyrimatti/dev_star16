@@ -1,0 +1,922 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<meta name="description" content="Figuring out Lenses and Prisms etc.">
+		<meta name="author" content="Jyri-Matti 'Jüppe' Lähteenmäki">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<title>Optics in Programming</title>
+
+		<style>
+			.reveal .footer {
+			  color: gray;
+			  position: absolute;
+			  top: 1em;
+			  right: 1em;
+			  font-size: 0.4em;
+			}
+		</style>
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/solarized.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section>
+					<h1>Optics in Programming</h1>
+
+					<p>dev* 2016</p>
+					<p>@jyrimatti</p>
+				</section>
+
+				<section>
+					<p>Polarization, photochromism...</p>
+					<p>
+						What do these have to do with programming?
+
+					</p>
+					<p class="fragment">
+						- nothing
+					</p>
+					<p class="fragment">
+						OK, fine, how about lenses and prisms?
+					</p>
+				</section>
+
+				<section>
+					<h2>Beware!</h2>
+					<p>
+						I don't mention any laws.<br />
+						I should.<br />
+						Maybe some day I will find the time to check if I break any.
+					</p>
+					<p>
+						There are no new contributions here.<br />
+						I picked stuff from here and there and put it together.
+					</p>
+				</section>
+
+				<section>
+					<h2>Functional reference</h2>
+					<p class="fragment">
+						Imagine if, <br />
+						we had a way to "zoom in" inside a structure to get a value.
+					</p>
+					<p class="fragment">
+						Maybe even modify the value,<br />
+						producing a modified clone of the structure.
+					</p>
+				</section>
+
+				<section>
+					<h2>The problem, in Java</h2>
+					<p>Let's imagine we want to assign salaries to employees.</p>
+					<pre><code class="java">
+class Department {
+  Employee _manager;
+}
+
+class Employee {
+  Integer _salary;
+}
+
+Department assignSalaries(Department d) {
+  d._manager._salary = 10000;
+}
+					</code></pre>
+					<p class="fragment">
+						Simple but mutable. Mutability causes lots of problems.<br />
+						Can we make it immutable?
+					</p>
+				</section>
+
+				<section>
+					<pre><code class="java">
+class Department {
+  final Employee _manager;
+  Department(Employee manager) { this._manager = manager; }
+}
+
+class Employee {
+  final Integer _salary;
+  Employee(Integer salary) { this._salary = salary; }
+}
+
+Department assignSalaries(Department d} {
+  return new Department(new Employee(10000));
+}
+					</code></pre>
+					<p class="fragment">
+						Awkward. Doesn't scale.<br />
+						Unrealistic when objects have more than a few fields.
+					</p>
+				</section>
+				<section>
+				<h2>Actual working example</h2>
+					<pre><code style="font-size:0.8em" class="java">
+Builder&lt;Employee>   eBuilder = Builder.of(Employee_.$Fields(),   Employee_.$);
+Builder&lt;Department> dBuilder = Builder.of(Department_.$Fields(), Department_.$);
+
+Lens&lt;Employee,   Integer>  salary  = Lens.of(Employee_._salary   , eBuilder);
+Lens&lt;Department, Employee> manager = Lens.of(Department_._manager, dBuilder);
+
+Lens&lt;Department, Employee> managerSalary = manager.andThen(salary);
+
+Department assignSalaries(Department d} {
+  return managerSalary.over(d, (s -> 10000));
+}
+</code></pre>
+					<p>
+						With Builders we can copy objects,<br />
+						with 1st class functions we can reference fields.
+					</p>
+					<p class="fragment">Verbose as hell, but scales indefinitely.</p>
+				</section>
+
+				<section>
+					<p>This is Lens</p>
+					<span class="fragment">
+						<p>Lens is also, more or less, a <a href="http://r6research.livejournal.com/23705.html">"Costate Comonad Coalgebra"</a>.</p>
+						<p>You should probably forget that.</p>
+					</span>
+				</section>
+
+				<section>
+					<h2>History</h2>
+					<div style="font-size: 0.7em; text-align: left">
+						<p class="fragment"><b>2006:</b> <i><a href="http://www.cs.ox.ac.uk/jeremy.gibbons/publications/iterator.pdf">The Essence of the Iterator Pattern</a></i>. Traversals encode the Iterator pattern.</p>
+						<p class="fragment"><b>2007:</b> <i><a href="http://web.archive.org/web/20071023064034/http://luqui.org/blog/archives/2007/08/05/haskell-state-accessors-second-attempt-composability/">Haskell State Accessors</a></i>. Composable "Accessors" for getting/setting record fields.</p>
+						<p class="fragment"><b>2009:</b> <i><a href="http://www.twanvl.nl/blog/haskell/cps-functional-references">CPS based functional references</a></i>. Using Functors to get different behaviors.</p>
+						<p class="fragment"><b>2012:</b> <i><a href="http://r6.ca/blog/20120623T104901Z.html">Polymorphic Update with van Laarhoven Lenses</a></i>.</p>
+						<p class="fragment"><b>2012:</b> <i><a href="http://hackage.haskell.org/package/lens">Control.Lens</a></i> is released to Hackage.</p>
+						<p class="fragment"><b>2014:</b> Some pure <i>profunctor</i> lenses appear.</p>
+						<p class="fragment"><b>2015:</b> <i><a href="https://hackage.haskell.org/package/mezzolens">Mezzolens</a></i> is pushed to Hackage, <a href="https://github.com/purescript-contrib/purescript-profunctor-lenses">Purescript gets profunctor lenses</a>.</p>
+						<p class="fragment"><b>2016:</b> The present. Lenses appear in a number of languages. Profunctor lenses still under research.</p>
+						<p class="fragment"><b>2017:</b> Maybe <b>You</b> figure out something useful?</p>
+						<p><i>mostly from <a href="https://github.com/ekmett/lens/wiki/History-of-Lenses">https://github.com/ekmett/lens/wiki/History-of-Lenses</a></i></p>
+					</div>
+				</section>
+
+				<section>
+					<h2>Our own Lens. In Haskell.</h2>
+					<p>
+						Following header makes the rest of the code samples compile.
+						(<a href="http://haskellformac.com/">Haskell-for-Mac</a>, GHCi (see <a href="https://gist.github.com/jyrimatti/02722d1422534016170219ab3a8086e2">GIST</a>))
+					</p>
+					<pre><code class="haskell">
+{-# LANGUAGE Rank2Types, ScopedTypeVariables #-}
+import Data.Tuple (swap)
+import Data.Monoid (First(..), getFirst)
+import Data.Time.Clock.POSIX (getPOSIXTime)
+import qualified Data.Char as Char
+import qualified Data.Profunctor as P
+import qualified Data.Tagged as T
+import Control.Monad.Identity
+import Control.Applicative (Const(..), getConst)
+import Control.Category ((>>>))
+import qualified Control.Lens as L
+import Numeric.Natural
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Lens as a pair of getter and setter</h2>
+					<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+data MyLens s a = MyLens {
+    getter :: s -> a
+  , setter :: a -> s -> s
+  }
+
+let get :: MyLens s a -> s -> a
+    get = getter
+
+    set :: MyLens s a -> a -> s -> s
+    set = setter
+    
+    modify :: MyLens s a -> (a -> a) -> s -> s
+    modify l f s = (setter l) (f $ getter l s) s
+
+data Employee = Employee { _salary :: Int } deriving Show
+
+let salary = MyLens _salary (\a s -> s { _salary = a } )
+
+get salary (Employee 42)
+-- > 42
+set salary 42 (Employee 1)
+-- > Employee { salary_ = 42 }
+modify salary (+1) (Employee 41)
+-- > Employee { salary_ = 42 }
+					</code></pre>
+					<p class="fragment">That's it!</p>
+				</section>
+
+				<section>
+					<h2>Composition</h2>
+					<p>Huge win with lenses is composition:</p>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+-- Define our own composition operator:
+let (@.) :: MyLens a b -> MyLens b c -> MyLens a c
+    (@.) l@(MyLens g1 s1) r@(MyLens g2 s2) = MyLens (g2 . g1) (\c a -> modify l (\b -> set r c b) a)
+    
+data Department = Department { _manager :: Employee } deriving Show
+let manager = MyLens _manager (\a s -> s { _manager = a } )
+
+get (manager @. salary) (Department (Employee 42))
+-- > 42
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Setter or modifier?</h2>
+					<p>
+						For modification we must get the value first<br />
+						-> two traversals inside structure, ugh...
+					</p>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+-- Let's replace the setter with a modifier:
+data MyLens_modifier s a = MyLens_modifier {
+    getter :: s -> a
+  , modifier :: (a -> a) -> s -> s
+  }
+
+-- Now 'modify' == modifier, and 'set' is easy to implement:
+let modify :: MyLens_modifier s a -> (a -> a) -> s -> s
+    modify = modifier
+    set :: MyLens_modifier s a -> a -> s -> s
+    set l a = modifier l (const a)
+</code></pre>
+				</section>
+
+				<section>
+				<h2>Do we need the getter?</h2>
+					<p>
+						How about returning the old value<br />
+						alongside the new structure?
+					</p>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+type MyLens_noGetter s a = (a -> a) -> s -> (a, s)
+
+let get :: MyLens_noGetter s a -> s -> a
+    get l s = fst $ l id s
+    modify :: MyLens_noGetter s a -> (a -> a) -> s -> s
+    modify l f s = snd $ l f s
+    set :: MyLens_noGetter s a -> a -> s -> s
+    set l a s = snd $ l (const a) s
+
+let salary :: MyLens_noGetter Employee Int = \f s -> let a = _salary s in (a, s { _salary = f a })
+
+get salary (Employee 42)
+-- > 42
+set salary 42 (Employee 1)
+-- > Employee { _salary = 42 }
+modify salary (+1) (Employee 41)
+-- > Employee { _salary = 42 }
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Another definition</h2>
+					<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+type MyLens_destructuring s a = s -> (a, a -> s)
+
+let get :: MyLens_destructuring s a -> s -> a
+    get l s = fst $ l s
+    modify :: MyLens_destructuring s a -> (a -> a) -> s -> s
+    modify l f s = let aas = l s in snd aas $ f (fst aas)
+    set :: MyLens_destructuring s a -> a -> s -> s
+    set l a s = (snd $ l s) a
+
+let salary :: MyLens_destructuring Employee Int = \s -> (_salary s, \a -> s { _salary = a })
+
+get salary (Employee 42)
+-- > 42
+set salary 42 (Employee 1)
+-- > Employee { _salary = 42 }
+modify salary (+1) (Employee 41)
+-- > Employee { _salary = 42 }
+					</code></pre>
+					<p>
+						it still works, and now the intuition is<br />
+						"something that breaks a Structure to a Value<br />
+						and a new Structure missing a Value"
+					</p>
+				</section>
+
+				<section>
+					<h2>Make illegal states unrepresentable</h2>
+					<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+-- Think about: (s -> t) and (a -> b), and s == "source" and t == "target"
+data MyLens_typeChanging s t a b = MyLens_typeChanging {
+    getter :: s -> a
+  , modifier :: (a -> b) -> s -> t
+  }
+  
+type MyLens_noGetter s a = MyLens_typeChanging s s a a
+
+let get = getter; modify = modifier; set l a = modifier l (const a)
+    
+data EmployeeWithoutSalary = EmployeeWithoutSalary { _salaryProposal :: Int } deriving Show
+data InvalidDepartment = InvalidDepartment { _imanager :: EmployeeWithoutSalary } deriving Show
+
+-- We know how to make department valid, given a function (f) that can make its manager valid:
+let makeDepartmentValid f s@(InvalidDepartment m) = Department { _manager = f m }
+
+-- So we can make a manager Lens which turns an invalid department to a valid one:
+let manager :: MyLens_typeChanging InvalidDepartment Department EmployeeWithoutSalary Employee
+    manager = MyLens_typeChanging _imanager makeDepartmentValid
+
+    someInvalidDepartment = InvalidDepartment $ EmployeeWithoutSalary 42
+
+modify manager (Employee . _salaryProposal) someInvalidDepartment
+-- > Department { _manager = Employee { _salary = 42 } }
+
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Digging deeper</h2>
+					<p>Regular functions are boring. What if we change to "monadic" functions, i.e. functions returning a wrapped value?</p>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+data MyLens_functor s t a b = MyLens_functor {
+    getter :: s -> a
+  , modifier :: forall f. Functor f => (a -> f b) -> (s -> f t)
+  }
+
+let modify :: Functor f => MyLens_functor s t a b -> (a -> f b) -> (s -> f t)
+    modify = modifier
+    
+    salary = MyLens_functor _salary (\f s -> fmap (\a -> s { _salary = a }) (f $ _salary s) )
+    
+    updateSalary = (+1)
+					</code></pre>
+					<p class="fragment">Needs a functor, so let's use some!</p>
+				</section>
+
+				<section>
+					<img src="functors.jpg" />
+					<div class="fragment">
+						<p>Remember Functors?</p>
+						<a href="https://lahteenmaki.net/dev_*14/">https://lahteenmaki.net/dev_*14/</a>
+					</div>
+				</section>
+
+				<section>
+					<h2>Some basic functors</h2>
+					<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+runIdentity $ modify salary (Identity . updateSalary) (Employee 41)
+-- > Employee { _salary = 42 }
+					</code></pre>
+					<p class="fragment">
+						This looks like the previous modification!<br />
+						In Control.Lens, 'over' does exactly this wrapping and unwrapping Identity.
+					</p>
+					<div class="fragment">
+						<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+getConst $ modify salary (Const . updateSalary) (Employee 41)
+-- > 42
+						</code></pre>
+						<p class="fragment">
+							This looks like the regular get!<br />
+							In Control.Lens, 'view' does exactly this wrapping and unwrapping Const.
+						</p>
+					</div>
+				</section>
+
+				<section>
+					<h2>IO?</h2>
+					<p>Let's use a bit more interesting functor, like... I don't know...</p>
+					<div class="fragment">
+						<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+let debugging f oldValue = do
+    putStrLn $ "Old value: " ++ show oldValue
+    started <- getPOSIXTime
+    let newVal = f oldValue
+    finished <- getPOSIXTime
+    putStrLn $ "New value: " ++ show newVal ++ ". Execution took " ++ show (finished-started) ++ " ms"
+    return newVal
+
+modify salary (debugging updateSalary) $ Employee 41
+-- > IO (Employee { _salary = 42 })
+-- and outputs a debugging string when executed!
+						</code></pre>
+					</div>
+				</section>
+
+				<section>
+					<img src="mindblown.gif" />
+					<p>Who says purity prevents us from doing stuff!</p>
+				</section>
+
+				<section>
+					<h2>Single value ...or more?</h2>
+					<p>Lens "zooms in" to a single value inside a structure.</p>
+					<p>What if we want to "zoom in" to multiple values?</p>
+					<p class="fragment">
+						Basic trick:<br />
+						replace Functors with <b>Applicatives</b> and see what happens<br />
+						(remember? <a href="https://lahteenmaki.net/dev_*14/">https://lahteenmaki.net/dev_*14/</a>)
+					</p>
+					<div class="fragment">
+						<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+type Traversal s t a b = forall f. Applicative f => (a -> f b) -> s -> f t
+type Traversal' s a = Traversal s s a a
+						</code></pre>
+						<p>Traversal can read and update multiple fields.</p>
+					</div>
+				</section>
+
+				<section>
+					<h2>Prism</h2>
+					<p>What if we want to "zoom in" to a part that may not be there?</p>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+type MyPrism s a = forall p f. (L.Choice p, Applicative f) => p a (f a) -> p s (f s)
+
+let myPrism :: (a -> s) -> (s -> Maybe a) -> MyPrism s a
+    myPrism as sma = P.dimap (\s -> maybe (Left s) Right (sma s)) (either pure (fmap as)) . L.right'
+    
+    review r = runIdentity . T.unTagged . r . T.Tagged . Identity
+    preview l = getFirst . L.foldMapOf l (First . Just)
+
+-- conditional constructor to create a department with a suitable manager
+let newDepartment emp | _salary emp > 5000 = Just $ Department emp
+    newDepartment _                        = Nothing
+    
+    -- prism breaking down the construction of a Department to
+    -- the "missing" value and the function taking the missing value
+    department :: MyPrism Employee Department
+    department = myPrism _manager newDepartment
+
+review department $ Department (Employee 42)
+-- > Employee {_salary = 42}
+preview department $ Employee 42
+-- > Nothing
+preview department $ Employee 5042
+-- > Just (Department {_manager = Employee {_salary = 5042})
+					</code></pre>
+					<p class="fragment">So, we can test if the function accepts the given argument.</p>
+				</section>
+
+				<section>
+					<h2>Composition, again</h2>
+					<p>I guess all this would be utterly useless if it didn't compose:</p>
+					<div class="fragment">
+						<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+-- Only allow an Employee with a positive salary
+let newEmployee sal = if sal > 0 then Just $ Employee sal else Nothing
+    employee = myPrism _salary newEmployee
+
+L.has employee $ 42
+-- > True
+L.has employee $ -42
+-- > False
+review employee $ Employee 42
+-- > 42
+preview employee $ -42
+-- > Nothing
+preview employee $ 42
+-- > Just (Employee {_salary = 42})
+
+-- prism for a valid department, that is, a department with an employee (manager) with salary >= 5000
+let validDepartment = employee . department
+
+L.has validDepartment $ 42
+-- > False
+L.has validDepartment $ 5042
+-- > True
+preview validDepartment $ 42
+-- > Nothing
+preview validDepartment $ 5042
+-- > Just (Department {_manager = Employee {_salary = 5042})
+						</code></pre>
+						<p class="fragment">With prisms we can build structures functionally with <br/> "validation in constructors"</p>
+					</div>
+				</section>
+
+				<section>
+					<h2>Zoomed in ...or moving?</h2>
+					<p>
+						What if we are zoomed in to a part inside a huge structure, and want to observe the neighborhood?<br />
+						Zooming again and again not acceptable performance-wise.
+					</p>
+					<p class="fragment">a Zipper can move inside a structure.<br />
+						forwards/backwards in a list, up or down a binary tree...
+					</p>
+					<p class="fragment">
+						Maybe some other year about zippers...
+					</p>
+				</section>
+
+				<section>
+					<h2>In (category) theory</h2>
+					<p>That is, in <i>abstract nonsense</i></p>
+					<span class="fragment">
+						<p>
+							Let's define an 'Optic' as something that<br />
+							goes from 's' to 't' and from 'a' to 'b'.
+						</p>
+						<p>
+							Or something that "zooms in" to an 'a' inside an 's' and<br />
+							can transform them to 'b' and 't' respectively:
+						</p>
+						<pre><code class="haskell">
+type Optic p s t a b = p a b -> p s t
+						</code></pre>
+					</span>
+					<p class="fragment">'p' is something that can wrap this whole mess.</p>
+				</section>
+
+				<section>
+					<h2>Isomorphisms</h2>
+					<span class="fragment">
+						<p>
+							Isomorphism is something that can go "there and back again".<br />
+							A transformation that preserves information.
+						</p>
+						<p>
+							Remember Profunctor? <a href="https://lahteenmaki.net/dev_*15/#/?">https://lahteenmaki.net/dev_*15/</a><br />
+							A Bifunctor where the first argument is contravariant ("input") and the second is covariant ("output")
+						</p>
+					</span>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+class Profunctor p where
+  dimap :: (a -> b) -> (c -> d) -> p b c -> p a d
+
+-- We get an isomorphism as an Optic with a profunctor wrapper:
+type Iso s t a b = forall p. Profunctor p => Optic p s t a b
+
+-- create an isomorphism
+let iso :: (s -> a) -> (b -> t) -> Iso s t a b
+    iso = dimap
+
+let charAsInt :: Iso Int Int Char Char
+    charAsInt = iso toEnum fromEnum
+
+    charOptic :: Profunctor p => Optic p Int Int Char Char
+    charOptic = charAsInt
+    				</code></pre>
+				</section>
+
+				<section>
+					<h2>Profunctors. Never forget.</h2>
+					<p>If we "Forget" the output transformation 'g'...</p>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+newtype Forget r a b = Forget { runForget :: a -> r }
+instance Profunctor (Forget r) where
+  dimap f _ (Forget k) = Forget (k . f)
+
+let view :: Optic (Forget a) s t a b -> s -> a
+    view o = runForget $ o $ Forget id
+    
+view charOptic 120
+-- > 'x'
+					</code></pre>
+					<p class="fragment">...we get a view to what an optic is "zoomed in to"</p>
+				</section>
+
+				<section>
+					<h2>Tagged</h2>
+					<p>If we "Tag in" a final value 'b'...</p>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+newtype Tagged s b = Tagged { unTagged :: b }
+instance Profunctor Tagged where
+  dimap _ g (Tagged b) = Tagged (g b)
+  
+let review :: Optic Tagged s t a b -> b -> t
+    review o = unTagged . o . Tagged
+    
+review charOptic 'x'
+-- > 120
+					</code></pre>
+					<p class="fragment">...we get back "its source"</p>
+				</section>
+
+				<section>
+					<p>With Forget and Tagged, an isomorphism can be inverted</p>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+let from :: Iso s t a b -> Iso b a t s
+    from i = iso (review i) (view i)
+    
+view charOptic 120
+-- > 'x'
+
+view (from charOptic) 'x'
+-- > 120
+					</code></pre>
+				</section>
+
+				<section>
+					<p>If we use regular function for the Optic...</p>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+instance Profunctor (->) where
+  dimap ab cd bc = cd . bc . ab
+  
+let over :: Optic (->) s t a b -> (a -> b) -> (s -> t)
+    over = id
+    
+    set :: Optic (->) s t a b -> b -> s -> t
+    set o = over o . const
+
+over charOptic (Char.toUpper) 120
+-- > 88 (== 'X')
+
+set charOptic 'X' 120
+-- > 88
+					</code></pre>
+					<p class="fragment">...we get modifier and setter</p>
+				</section>
+
+				<section>
+					<h2>Strength</h2>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+class Profunctor p => Strong p where
+  first' :: p a b  -> p (a, c) (b, c)
+  first' = dimap swap swap . second'
+  
+  second' :: p a b -> p (c, a) (c, b)
+  second' = dimap swap swap . first'
+
+instance Strong (->) where
+  first' ab ~(a, c) = (ab a, c)
+
+instance Strong (Forget r) where
+  first' (Forget k) = Forget (k . fst)
+  					</code></pre>
+				</section>
+
+				<section>
+					<p>
+						If we use Strength to "Pass through values",<br />
+						we get Lens
+					</p>
+					<pre class="fragment"><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+type Lens s t a b = forall p. Strong p => Optic p s t a b
+
+let lens :: (s -> a) -> (s -> b -> t) -> Lens s t a b
+    lens f g = dimap (f &amp;&amp;&amp; id) (uncurry $ flip g) . first'
+      where
+        (***) :: (b -> c) -> (b' -> c') -> (b,b') -> (c,c')
+        f *** g = first' f >>> swap >>> first' g >>> swap
+
+        (&amp;&amp;&amp;) :: (b -> c) -> (b -> c') -> b -> (c,c')
+        f &amp;&amp;&amp; g = (\b -> (b,b)) >>> f *** g
+ 
+let charLens :: Lens Int Int Char Char
+    charLens = lens toEnum (\s b -> fromEnum b)
+    
+    salary :: Lens Employee Employee Int Int
+    salary = lens _salary (\s b -> s { _salary = b })
+
+view charLens 120
+-- > 'x'
+
+set charLens 'x' 42
+-- > 120
+   
+over charLens (Char.toUpper) 120
+-- > 88 (== 'X')
+					</code></pre>
+				</section>
+
+				<section>
+					<p>Lens composition:</p>
+					<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+let toUpperLens = lens Char.toUpper $ \s -> Char.toLower
+
+view (charLens . toUpperLens) 120
+-- > 'X'
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Prism</h2>
+					<p>By using Choice as a profunctor...</p>
+					<span class="fragment">
+						<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+class Profunctor p => Choice p where
+  left' =  dimap (either Right Left) (either Right Left) . right'
+  right' =  dimap (either Right Left) (either Right Left) . left'
+instance Choice Tagged where
+  left' (Tagged b) = Tagged (Left b)
+instance Monoid r => Choice (Forget r) where
+  left' (Forget k) = Forget (either k (const mempty))
+
+type Prism s t a b = forall p. Choice p => Optic p s t a b
+                
+let prism :: (b -> t) -> (s -> Either t a) -> Prism s t a b
+    prism f g = dimap g (either id f) . right'
+    
+    preview :: Prism s t a b -> s -> (Maybe a)
+    preview l = getFirst . (runForget . l . Forget $ First . pure)
+
+let charPrism :: Prism Int Int Char Char
+    charPrism = prism fromEnum (\s -> if s > 0 then Right (toEnum s) else Left s)
+
+review charPrism 'x'
+-- > 120
+preview charPrism 120
+-- > Just 'x'
+preview charPrism (-120)
+-- > Nothing
+						</code></pre>
+						<p>... we get Prism</p>
+					</span>
+				</section>
+
+				<section>
+					<h2>Traversals</h2>
+					<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+instance Choice (->) where
+  left' ab (Left a) = Left (ab a)
+  left' _ (Right c) = Right c
+
+class (Strong p, Choice p) => Wander p where
+  wander :: (forall f. Applicative f => (a -> f b) -> s -> f t) -> p a b -> p s t
+
+instance Wander (->) where
+  wander t f = runIdentity . t (Identity . f)
+
+type Traversal s t a b = forall p. Wander p => Optic p s t a b
+
+let traversed :: forall t a b. (Traversable t) => Traversal (t a) (t b) a b
+    traversed = wander traverse
+    				</code></pre>
+				</section>
+
+				<section>
+					<h2>IO?</h2>
+					<p>
+						If instead of a regular function we use a "monadic function",<br />
+						that is, a function of the form "a -> m b"<br />
+						wrapped inside a data type (Kleisli),<br />
+						we get IO etc.
+					</p>
+					<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+data Kleisli m a b = Kleisli { runKleisli :: a -> m b }
+
+instance Functor f => Profunctor (Kleisli f) where
+  dimap f g (Kleisli h) = Kleisli (fmap g . h . f)
+
+instance Applicative f => Choice (Kleisli f) where
+  right' (Kleisli f) = Kleisli foo
+        where foo (Left c) = pure $ Left c
+              foo (Right a) = sequenceA $ Right (f a)
+
+instance Functor f => Strong (Kleisli f) where
+  second' (Kleisli h) = Kleisli $ \(x,y) -> (,) x <$> (h y)
+
+let modifyM :: Optic (Kleisli f) s t a b -> (a -> f b) -> s -> f t
+    modifyM l = runKleisli . l . Kleisli
+    
+modifyM charLens (\c -> do putStrLn "You see me!"; return $ Char.toUpper c) 120
+-- > IO 88
+-- and outputs "You see me!" when executed!
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Comonadic?</h2>
+					<p>
+						Similarly, we can wrap a "comonadic function"<br />
+						to a CoKleisli type to be able to use<br />
+						comonadic (w a -> b) instead of monadic functions:
+					</p>
+					<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+data CoKleisli w a b = CoKleisli { runCoKleisli :: w a -> b }
+
+instance Functor f => Profunctor (CoKleisli f) where
+  dimap f g (CoKleisli h) = CoKleisli (g . h . fmap f)
+  
+let modifyW :: Optic (CoKleisli f) s t a b -> (f a -> b) -> f s -> t
+    modifyW l = runCoKleisli . l . CoKleisli
+
+data MyEnv v = MyEnv Int v
+instance Functor MyEnv where
+  fmap f (MyEnv e v) = MyEnv e $ f v
+  
+let getEnv (MyEnv e v) = e
+    getValue (MyEnv e v) = v
+
+let someComonadicFunction :: MyEnv Char -> Char
+    someComonadicFunction env = Char.toUpper $ toEnum $ fromEnum (getValue env) + getEnv env
+    
+view charOptic $ modifyW charOptic someComonadicFunction (MyEnv 1 120)
+-- > 'Y'
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>The point?</h2>
+					<span class="fragment">
+						<p>We can finally reference "things" inside complex hierarchies:
+						<pre><code style="font-size: 0.7em; line-height:1.1em" class="haskell">
+data Money      = Money      { _amount    :: Natural, _currency :: String } deriving Show
+data Employee   = Employee   { _salary    :: Maybe Money }                  deriving Show
+data Department = Department { _employees :: [Employee] }                   deriving Show
+
+let employees :: Lens Department Department [Employee] [Employee]
+    employees = lens _employees (\d es -> d { _employees = es })
+
+    salary :: Lens Employee Employee (Maybe Money) (Maybe Money)
+    salary = lens _salary (\e s -> e { _salary = s })
+    
+    amount :: Lens Money Money Natural Natural
+    amount = lens _amount (\m a -> m { _amount = a })
+    
+    just :: Prism (Maybe a) (Maybe b) a b
+    just = prism Just $ maybe (Left Nothing) Right
+
+    someDepartment = Department [Employee (Just $ Money 42 "Euro")]
+
+let nilled = set (employees.traversed.salary) Nothing someDepartment
+-- > Department {_employees = [Employee {_salary = Nothing}]}
+
+over (employees.traversed.salary.just.amount) (+1) nilled
+-- > Department {_employees = [Employee {_salary = Nothing}]}
+
+over (employees.traversed.salary.just.amount) (+1) someDepartment
+-- > Department {_employees = [Employee {_salary = Just (Money {_amount = 43, _currency = "Euro"})}]}
+						</code></pre>
+					</p>
+					<p>Like object-oriented dot-notation but better!</p>
+				</section>
+
+				<section>
+					<img src="omg.jpg" />
+				</section>
+
+				<section>
+					<h2>Conclusion</h2>
+					<p class="fragment">Optics are useful, in any language striving for immutability.</p>
+					<p class="fragment">Multiple libraries and languages provide Optics.</p>
+					<p class="fragment">
+						In 10-20 years we will all be using Optics
+						<br />in everyday programming.
+					</p>
+					<p class="fragment">
+						Implementing Optics with Profunctors<br />
+						is an active research topic.
+					</p>
+				</section>
+
+				<section>
+					<h2>Reading material</h2>
+					<span style="font-size: 0.6em">
+						<p>The code:<br /><a href="https://gist.github.com/jyrimatti/02722d1422534016170219ab3a8086e2">https://gist.github.com/jyrimatti/02722d1422534016170219ab3a8086e2</a></p>
+						<p>Excellent tutorial for a passionate mind:<br /><a href="https://artyom.me/#lens-over-tea">https://artyom.me/#lens-over-tea</a></p>
+						<p>Nice QA:<br /><a href="https://www.schoolofhaskell.com/user/tel/a-little-lens-starter-tutorial">https://www.schoolofhaskell.com/user/tel/a-little-lens-starter-tutorial</a></p>
+						<p>More lens stuff:<br /><a href="https://github.com/ekmett/lens/wiki/FAQ#q-where-can-i-learn-more-about-lenses-in-general">https://github.com/ekmett/lens/wiki/FAQ#q-where-can-i-learn-more-about-lenses-in-general</a></p>
+						<p>Mezzolens:<br /><a href="https://hackage.haskell.org/package/mezzolens">https://hackage.haskell.org/package/mezzolens</a></p>
+						<p>Mainline Profunctor Heirarchy for Optics:<br /><a href="http://r6research.livejournal.com/27476.html">http://r6research.livejournal.com/27476.html</a></p>
+						<p>Profunctor lenses for Purescript:<br /><a href="https://github.com/purescript-contrib/purescript-profunctor-lenses/">https://github.com/purescript-contrib/purescript-profunctor-lenses/</a></p>
+					</span>
+				</section>
+
+				<section>
+					<p>Keep your focus on learning new stuff!</p>
+
+					<p>Thank you.</p>
+				</section>
+			</div>
+
+			<div class="footer">
+				link to this presentation: <a href="https://lahteenmaki.net/dev_*16/">https://lahteenmaki.net/dev_*16/</a>
+			</div>	
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+			// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				history: true,
+
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+				]
+			});
+		</script>
+	</body>
+</html>
